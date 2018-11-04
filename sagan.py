@@ -52,20 +52,20 @@ def generator(z, is_training= True):
         deconv1 = tf.nn.relu(deconv1)
         att_deconv1 = attention(deconv1, 256, 'deconv1_att')
 
-        deconv2 = deconv(att_deconv1, 256, strides= 1, scope= 'deconv2')
+        deconv2 = deconv(att_deconv1, 128, strides= 1, scope= 'deconv2')
         deconv2 = batch_normalization(deconv2, is_training= is_training)
         deconv2 = tf.nn.relu(deconv2)
-        att_deconv2 = attention(deconv2, 256, 'deconv2_att')
+        att_deconv2 = attention(deconv2, 128, 'deconv2_att')
         
-        deconv3 = deconv(att_deconv2, 256, strides= 1, scope= 'deconv3')
+        deconv3 = deconv(att_deconv2, 64, strides= 1, scope= 'deconv3')
         deconv3 = batch_normalization(deconv3, is_training= is_training)
         deconv3 = tf.nn.relu(deconv3)
-        att_deconv3 = attention(deconv3, 256, 'deconv3_att')
+        att_deconv3 = attention(deconv3, 64, 'deconv3_att')
         
-        deconv4 = deconv(att_deconv3, 256, scope= 'deconv4')
+        deconv4 = deconv(att_deconv3, 32, scope= 'deconv4')
         deconv4 = batch_normalization(deconv4, is_training= is_training)
         deconv4 = tf.nn.relu(deconv4)
-        att_deconv4 = attention(deconv4, 256, 'deconv4_att')
+        att_deconv4 = attention(deconv4, 32, 'deconv4_att')
         
         deconv5 = deconv(att_deconv4, 3, scope= 'deconv5')
         deconv5 = tf.nn.tanh(deconv5)
@@ -77,20 +77,20 @@ def discriminator(x, is_training= True):
     
     with tf.variable_scope('d', reuse= tf.AUTO_REUSE):
         
-        conv1 = conv(x, 256, scope= 'conv1')
+        conv1 = conv(x, 32, scope= 'conv1')
         conv1 = batch_normalization(conv1, is_training= is_training)
         conv1 = tf.nn.relu(conv1)
-        att_conv1 = attention(conv1, 256, 'conv1_att')
+        att_conv1 = attention(conv1, 32, 'conv1_att')
         
-        conv2 = conv(att_conv1, 256, scope= 'conv2')
+        conv2 = conv(att_conv1, 64, scope= 'conv2')
         conv2 = batch_normalization(conv2, is_training= is_training)
         conv2 = tf.nn.relu(conv2)
-        att_conv2 = attention(conv2, 256, 'conv2_att')
+        att_conv2 = attention(conv2, 64, 'conv2_att')
         
-        conv3 = conv(att_conv2, 256, scope= 'conv3')
+        conv3 = conv(att_conv2, 128, scope= 'conv3')
         conv3 = batch_normalization(conv3, is_training= is_training)
         conv3 = tf.nn.relu(conv3)
-        att_conv3 = attention(conv3, 256, 'conv3_att')
+        att_conv3 = attention(conv3, 128, 'conv3_att')
         
         conv4 = conv(att_conv3, 256, scope= 'conv4')
         conv4 = batch_normalization(conv4, is_training= is_training)
@@ -112,11 +112,11 @@ gf = generator(z, is_training= it)
 df = discriminator(gf, is_training= it)
 
 # Loss
-r_loss = tf.reduce_mean(tf.nn.relu(1.0 - dr))
-f_loss = tf.reduce_mean(tf.nn.relu(1.0 + df))
+r_loss = -1 * tf.reduce_mean(dr)
+f_loss = tf.reduce_mean(df)
 d_loss = r_loss + f_loss
 
-g_loss = -1 * tf.reduce_mean(gf)
+g_loss = -1 * tf.reduce_mean(df)
 
 t_vars = tf.trainable_variables()
 d_vars = [var for var in t_vars if 'd' in var.name]
