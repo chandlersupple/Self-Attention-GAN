@@ -1,4 +1,4 @@
-# Chandler Supple, 10/4/2018
+# Chandler Supple, 11/4/2018
 
 import tensorflow as tf
 from keras.datasets import cifar10
