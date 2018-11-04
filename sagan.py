@@ -79,26 +79,26 @@ def discriminator(x, is_training= True):
         
         conv1 = conv(x, 32, scope= 'conv1')
         conv1 = batch_normalization(conv1, is_training= is_training)
-        conv1 = tf.nn.relu(conv1)
+        conv1 = tf.nn.leaky_relu(conv1)
         att_conv1 = attention(conv1, 32, 'conv1_att')
         
         conv2 = conv(att_conv1, 64, scope= 'conv2')
         conv2 = batch_normalization(conv2, is_training= is_training)
-        conv2 = tf.nn.relu(conv2)
+        conv2 = tf.nn.leaky_relu(conv2)
         att_conv2 = attention(conv2, 64, 'conv2_att')
         
         conv3 = conv(att_conv2, 128, scope= 'conv3')
         conv3 = batch_normalization(conv3, is_training= is_training)
-        conv3 = tf.nn.relu(conv3)
+        conv3 = tf.nn.leaky_relu(conv3)
         att_conv3 = attention(conv3, 128, 'conv3_att')
         
         conv4 = conv(att_conv3, 256, scope= 'conv4')
         conv4 = batch_normalization(conv4, is_training= is_training)
-        conv4 = tf.nn.relu(conv4)
+        conv4 = tf.nn.leaky_relu(conv4)
         att_conv4 = attention(conv4, 256, 'conv4_att')
 
         flatt_conv4 = tf.layers.flatten(att_conv4)  
-        dl1 = tf.layers.dense(flatt_conv4, 1, activation= tf.nn.sigmoid)
+        dl1 = tf.layers.dense(flatt_conv4, 1)
         
         return dl1
             
@@ -111,10 +111,18 @@ dr = discriminator(x, is_training= it)
 gf = generator(z, is_training= it)
 df = discriminator(gf, is_training= it)
 
+# Gradient Penalty
+alpha = tf.random_uniform(shape= [batch_size, 1, 1, 1], minval= 0.0, maxval= 1.0)
+interpolated = alpha * x + (1.0 - alpha) * gf
+d_inter = discriminator(interpolated, is_training= it)
+grads = tf.gradients(d_inter, interpolated)[0]
+grads_norm = tf.norm(tf.layers.flatten(grads), axis= 1) 
+gp = 10.0 * tf.reduce_mean(tf.square(tf.maximum(0.0, grads_norm - 1.0)))
+
 # Loss
 r_loss = -1 * tf.reduce_mean(dr)
 f_loss = tf.reduce_mean(df)
-d_loss = r_loss + f_loss
+d_loss = r_loss + f_loss + gp
 
 g_loss = -1 * tf.reduce_mean(df)
 
@@ -130,7 +138,7 @@ sess.run(tf.global_variables_initializer())
 
 # Dataset
 batches_in_epoch = 50000 // batch_size
-data = ret_data(batch_size, batches_in_epoch)
+data = ret_data(batch_size, batches_in_epoch, 2)
 
 images = []
 
