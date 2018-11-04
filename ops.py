@@ -52,8 +52,19 @@ def flatten(x):
     
 def batch_normalization(x, is_training= True):
     return tf.contrib.layers.batch_norm(x, decay= 0.9, epsilon= 1e-05, center= True, scale= True, updates_collections= None, is_training= is_training)
+        
+def normalize(li, r):
+    l = np.array(li) 
+    a = np.max(l)
+    c = np.min(l)
+    b = r[1]
+    d = r[0]
     
-def ret_data(batch_size, batches_in_epoch):
+    m = (b - d) / (a - c)
+    pslope = (m * (l - c)) + d
+    return pslope
+
+def ret_data(batch_size, batches_in_epoch, noise):
     (x_tr, y_tr), _ = cifar10.load_data()
     batches = []
     
@@ -61,5 +72,7 @@ def ret_data(batch_size, batches_in_epoch):
         batch_x = x_tr[batch_iter * batch_size: (batch_iter * batch_size) + batch_size]
         batches.append(batch_x)
         
+    batches = batches + (noise * np.random.normal(size= np.shape(batches)))
+    batches = normalize(batches, [-1, 1])
+    
     return batches
-        
