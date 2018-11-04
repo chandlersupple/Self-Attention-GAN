@@ -2,9 +2,9 @@
 
 # Libraries
 from ops import *
-import numpy as np
 import tensorflow as tf
 from keras.preprocessing import image
+import numpy as np
 
 # Session
 sess = tf.InteractiveSession()
@@ -45,7 +45,7 @@ def generator(z, is_training= True):
     with tf.variable_scope('g', reuse= tf.AUTO_REUSE):
         
         dl1 = tf.layers.dense(z, 8192, activation= tf.nn.leaky_relu)
-        dl1 = tf.reshape(dl1, [-1, 4, 4, 8192])
+        dl1 = tf.reshape(dl1, [-1, 4, 4, 512])
         
         deconv1 = deconv(dl1, 256, scope= 'deconv1')
         deconv1 = batch_normalization(deconv1, is_training= is_training)
@@ -96,9 +96,10 @@ def discriminator(x, is_training= True):
         conv4 = batch_normalization(conv4, is_training= is_training)
         conv4 = tf.nn.relu(conv4)
         att_conv4 = attention(conv4, 256, 'conv4_att')
+
+        flatt_conv4 = tf.layers.flatten(att_conv4)  
+        dl1 = tf.layers.dense(flatt_conv4, 1, activation= tf.nn.sigmoid)
         
-        dl1 = tf.layers.dense(att_conv4, 1, activation= tf.nn.sigmoid)
-            
         return dl1
             
 # Placeholders
