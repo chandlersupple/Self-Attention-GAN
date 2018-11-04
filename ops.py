@@ -62,3 +62,4 @@ def ret_data(batch_size, batches_in_epoch):
         batches.append(batch_x)
         
     return batches
+        
