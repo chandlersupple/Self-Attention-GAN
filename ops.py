@@ -1,7 +1,8 @@
 # Chandler Supple, 11/4/2018
 
 import tensorflow as tf
-from keras.datasets import cifar10
+import numpy as np
+from keras.preprocessing import image
 init = tf.random_normal_initializer(mean=0.0, stddev=0.02)
 
 def l2_normalization(x, epsilon= 1e-12):
@@ -23,7 +24,7 @@ def spectral_normalization(x):
         
     return resh_x_norm
     
-def conv(x, channels, kernel_size= 4, strides= 2, padding= 'SAME', pad= 1, scope= 'conv'):
+def conv(x, channels, kernel_size= 3, strides= 2, padding= 'SAME', pad= 1, scope= 'conv'):
     
     with tf.variable_scope(scope):
         x_pd = tf.pad(x, [[0, 0], [pad, pad], [pad, pad], [0, 0]])
@@ -34,7 +35,7 @@ def conv(x, channels, kernel_size= 4, strides= 2, padding= 'SAME', pad= 1, scope
         
         return conv_out
         
-def deconv(x, channels, kernel_size= 4, strides= 2, padding= 'SAME', scope= 'deconv'):
+def deconv(x, channels, kernel_size= 3, strides= 2, padding= 'SAME', scope= 'deconv'):
     
     with tf.variable_scope(scope):
         x_shape = (x).get_shape().as_list()
@@ -44,7 +45,7 @@ def deconv(x, channels, kernel_size= 4, strides= 2, padding= 'SAME', scope= 'dec
         b = tf.get_variable('b', [channels], initializer= tf.constant_initializer(0.0))
         deconv_out = tf.nn.bias_add(deconv_out, b)
         
-        return deconv_out
+        return deconv_out    
     
 def flatten(x):
     x_shape = tf.shape(x)
@@ -64,15 +65,16 @@ def normalize(li, r):
     pslope = (m * (l - c)) + d
     return pslope
 
-def ret_data(batch_size, batches_in_epoch, noise):
-    (x_tr, y_tr), _ = cifar10.load_data()
+def ret_data(batch_size, batch_iter):
     batches = []
     
-    for batch_iter in range (batches_in_epoch):
-        batch_x = x_tr[batch_iter * batch_size: (batch_iter * batch_size) + batch_size]
-        batches.append(batch_x)
-        
-    batches = batches + (noise * np.random.normal(size= np.shape(batches)))
+    for imag in range (batch_iter * batch_size, (batch_iter * batch_size) + batch_size):
+        name = ['0', '0', '0', '0', '0', '0']
+        str_imag = str(imag)
+        for char in range (len(str_imag)):
+            name[char] = str_imag[char]
+        batches.append(image.img_to_array(image.load_img('%s.jpg' %(''.join(name)[::-1]), target_size= [128, 128])))
+            
     batches = normalize(batches, [-1, 1])
     
     return batches
