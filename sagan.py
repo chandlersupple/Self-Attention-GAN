@@ -11,7 +11,7 @@ sess = tf.InteractiveSession()
 
 # Parameters, Hyperparameters
 epochs = 128
-batch_size = 32
+batch_size = 64
 g_lr = 0.0001
 d_lr = 0.0004
 beta1 = 0.0
@@ -35,7 +35,7 @@ def attention(x, channels, scope):
         o = tf.reshape(o, x_shape)
         
         gamma = tf.get_variable('gamma', [1], initializer= tf.constant_initializer(0.0)) 
-        out = (gamma * o) + x
+        out = tf.add((gamma * o), x)
 
         return out
 
@@ -50,24 +50,22 @@ def generator(z, is_training= True):
         deconv1 = deconv(dl1, 256, scope= 'deconv1')
         deconv1 = batch_normalization(deconv1, is_training= is_training)
         deconv1 = tf.nn.relu(deconv1)
-        att_deconv1 = attention(deconv1, 256, 'deconv1_att')
 
-        deconv2 = deconv(att_deconv1, 128, strides= 1, scope= 'deconv2')
+        deconv2 = deconv(deconv1, 128, scope= 'deconv2')
         deconv2 = batch_normalization(deconv2, is_training= is_training)
         deconv2 = tf.nn.relu(deconv2)
-        att_deconv2 = attention(deconv2, 128, 'deconv2_att')
         
-        deconv3 = deconv(att_deconv2, 64, strides= 1, scope= 'deconv3')
+        deconv3 = deconv(deconv2, 64, scope= 'deconv3')
         deconv3 = batch_normalization(deconv3, is_training= is_training)
         deconv3 = tf.nn.relu(deconv3)
+        
         att_deconv3 = attention(deconv3, 64, 'deconv3_att')
         
         deconv4 = deconv(att_deconv3, 32, scope= 'deconv4')
         deconv4 = batch_normalization(deconv4, is_training= is_training)
         deconv4 = tf.nn.relu(deconv4)
-        att_deconv4 = attention(deconv4, 32, 'deconv4_att')
-        
-        deconv5 = deconv(att_deconv4, 3, scope= 'deconv5')
+
+        deconv5 = deconv(deconv4, 3, scope= 'deconv5')
         deconv5 = tf.nn.tanh(deconv5)
             
         return deconv5
@@ -79,50 +77,44 @@ def discriminator(x, is_training= True):
         
         conv1 = conv(x, 32, scope= 'conv1')
         conv1 = batch_normalization(conv1, is_training= is_training)
-        conv1 = tf.nn.leaky_relu(conv1)
-        att_conv1 = attention(conv1, 32, 'conv1_att')
+        conv1 = tf.nn.leaky_relu(conv1, alpha= 0.1)
         
-        conv2 = conv(att_conv1, 64, scope= 'conv2')
+        conv2 = conv(conv1, 64, scope= 'conv2')
         conv2 = batch_normalization(conv2, is_training= is_training)
-        conv2 = tf.nn.leaky_relu(conv2)
+        conv2 = tf.nn.leaky_relu(conv2, alpha= 0.1)
+        
         att_conv2 = attention(conv2, 64, 'conv2_att')
         
         conv3 = conv(att_conv2, 128, scope= 'conv3')
         conv3 = batch_normalization(conv3, is_training= is_training)
-        conv3 = tf.nn.leaky_relu(conv3)
-        att_conv3 = attention(conv3, 128, 'conv3_att')
-        
-        conv4 = conv(att_conv3, 256, scope= 'conv4')
-        conv4 = batch_normalization(conv4, is_training= is_training)
-        conv4 = tf.nn.leaky_relu(conv4)
-        att_conv4 = attention(conv4, 256, 'conv4_att')
+        conv3 = tf.nn.leaky_relu(conv3, alpha= 0.1)
 
-        flatt_conv4 = tf.layers.flatten(att_conv4)  
-        dl1 = tf.layers.dense(flatt_conv4, 1)
+        conv4 = conv(conv3, 256, scope= 'conv4')
+        conv4 = batch_normalization(conv4, is_training= is_training)
+        conv4 = tf.nn.leaky_relu(conv4, alpha= 0.1)
+        
+        conv5 = conv(conv4, 512, scope= 'conv5')
+        conv5 = batch_normalization(conv5, is_training= is_training)
+        conv5 = tf.nn.leaky_relu(conv5, alpha= 0.1)
+
+        flatt_conv5 = tf.layers.flatten(conv5)
+        dl1 = tf.layers.dense(flatt_conv5, 1)
         
         return dl1
             
 # Placeholders
-x = tf.placeholder(tf.float32, [batch_size, 32, 32, 3])
-z = tf.placeholder(tf.float32, [batch_size, 100])
+x = tf.placeholder(tf.float32, [batch_size, 128, 128, 3])
+z = tf.placeholder(tf.float32, [batch_size, 128])
 it = tf.placeholder(tf.bool)
 
 dr = discriminator(x, is_training= it)
 gf = generator(z, is_training= it)
 df = discriminator(gf, is_training= it)
 
-# Gradient Penalty
-alpha = tf.random_uniform(shape= [batch_size, 1, 1, 1], minval= 0.0, maxval= 1.0)
-interpolated = alpha * x + (1.0 - alpha) * gf
-d_inter = discriminator(interpolated, is_training= it)
-grads = tf.gradients(d_inter, interpolated)[0]
-grads_norm = tf.norm(tf.layers.flatten(grads), axis= 1) 
-gp = 10.0 * tf.reduce_mean(tf.square(tf.maximum(0.0, grads_norm - 1.0)))
-
 # Loss
-r_loss = -1 * tf.reduce_mean(dr)
-f_loss = tf.reduce_mean(df)
-d_loss = r_loss + f_loss + gp
+r_loss = tf.reduce_mean(tf.nn.relu(1 - dr))
+f_loss = tf.reduce_mean(tf.nn.relu(1 + df))
+d_loss = tf.add(r_loss, f_loss)
 
 g_loss = -1 * tf.reduce_mean(df)
 
@@ -136,17 +128,18 @@ g_opt = tf.train.AdamOptimizer(g_lr, beta1= beta1, beta2= beta2).minimize(g_loss
         
 sess.run(tf.global_variables_initializer())
 
-# Dataset
-batches_in_epoch = 50000 // batch_size
-data = ret_data(batch_size, batches_in_epoch, 2)
-
+batches_in_epoch = 20000 // batch_size # '20000' refers to the number of training images
 images = []
+
+# Checkpoints
+saver = tf.train.Saver()
+save_dir = '/Users/Masterchief7269/Desktop/Programming Header/Python/Models/SAGAN/' # Change accordingly
 
 # Training
 for epoch_iter in range (epochs):
-    for batch_iter in range (batches_in_epoch):
-        b_x = data[batch_iter]
-        b_z = np.random.uniform(-1.0, 1.0, size= [batch_size, 100])
+    for batch_iter in range (1, batches_in_epoch):
+        b_x = ret_data(batch_size, batch_iter)
+        b_z = np.random.uniform(-1.0, 1.0, size= [batch_size, 128])
         sess.run(d_opt, feed_dict= {x: b_x, z: b_z, it: True})
         sess.run(g_opt, feed_dict= {x: b_x, z: b_z, it: True})
         
@@ -159,3 +152,6 @@ for epoch_iter in range (epochs):
         if batch_iter % 25 == 0:
             g_img = sess.run(gf, feed_dict= {x: b_x, z: b_z, it: False})
             images.append(g_img)
+
+        if batch_iter % 100 == 0:
+            saver.save(sess, save_dir)
