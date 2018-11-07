@@ -24,12 +24,11 @@ def spectral_normalization(x):
         
     return resh_x_norm
     
-def conv(x, channels, kernel_size= 3, strides= 2, padding= 'SAME', pad= 1, scope= 'conv'):
+def conv(x, channels, kernel_size= 3, strides= 2, padding= 'SAME', scope= 'conv'):
     
     with tf.variable_scope(scope):
-        x_pd = tf.pad(x, [[0, 0], [pad, pad], [pad, pad], [0, 0]])
-        w = tf.get_variable('w', shape= [kernel_size, kernel_size, (x_pd).get_shape().as_list()[-1], channels], initializer= init)
-        conv_out = tf.nn.conv2d(x_pd, spectral_normalization(w), strides= [1, strides, strides, 1], padding= padding)
+        w = tf.get_variable('w', shape= [kernel_size, kernel_size, (x).get_shape().as_list()[-1], channels], initializer= init)
+        conv_out = tf.nn.conv2d(x, spectral_normalization(w), strides= [1, strides, strides, 1], padding= padding)
         b = tf.get_variable('b', [channels], initializer= tf.constant_initializer(0.0))
         conv_out = tf.nn.bias_add(conv_out, b)
         
@@ -46,6 +45,15 @@ def deconv(x, channels, kernel_size= 3, strides= 2, padding= 'SAME', scope= 'dec
         deconv_out = tf.nn.bias_add(deconv_out, b)
         
         return deconv_out    
+    
+def ret_pert(x):
+    return x + 0.5 * x.std() * np.random.random(x.shape)
+
+def dense(x, units):
+    w = tf.get_variable('w', shape= [(x).get_shape().as_list()[-1], units], initializer= tf.truncated_normal_initializer())
+    b = tf.get_variable('b', [units], initializer= tf.constant_initializer(0.0))    
+    
+    return tf.matmul(x, spectral_normalization(w)) + b
     
 def flatten(x):
     x_shape = tf.shape(x)
@@ -71,10 +79,10 @@ def ret_data(batch_size, batch_iter):
     for imag in range (batch_iter * batch_size, (batch_iter * batch_size) + batch_size):
         name = ['0', '0', '0', '0', '0', '0']
         str_imag = str(imag)
-        for char in range (len(str_imag)):
-            name[char] = str_imag[char]
-        batches.append(image.img_to_array(image.load_img('%s.jpg' %(''.join(name)[::-1]), target_size= [128, 128])))
-            
+        for char in range (1, len(str_imag) + 1):
+            name[-char] = str_imag[-char]
+        batches.append(image.img_to_array(image.load_img('%s.jpg' %(''.join(name)), target_size= [128, 128])))
+        
     batches = normalize(batches, [-1, 1])
-    
+
     return batches
